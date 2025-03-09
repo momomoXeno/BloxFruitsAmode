@@ -1,0 +1,378 @@
+-- Create a simple GUI for the Blox Fruits auto farm with Kill Aura, Teleport to Chests, and Enemy ESP
+
+-- Services
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+
+-- Local Player
+local player = Players.LocalPlayer
+
+-- ESP Settings
+local espEnabled = false
+local espColor = Color3.fromRGB(255, 0, 0)
+local espThickness = 2
+
+local ScreenGui = Instance.new("ScreenGui")
+local Frame = Instance.new("Frame")
+local TitleLabel = Instance.new("TextLabel")
+local KeyLabel = Instance.new("TextLabel")
+local KeyBox = Instance.new("TextBox")
+local EnterKeyButton = Instance.new("TextButton")
+
+local AutoFarmEnabled = false
+local validKey = "AmodeISsigma"
+local keyEntered = false
+
+-- Set properties for the ScreenGui
+ScreenGui.Parent = game.CoreGui
+ScreenGui.Name = "KeyInputGUI"
+
+-- Set properties for the Frame
+Frame.Parent = ScreenGui
+Frame.AnchorPoint = Vector2.new(0.5, 0.5)
+Frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+Frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+Frame.Size = UDim2.new(0, 400, 0, 300)
+Frame.BorderSizePixel = 2
+Frame.BorderColor3 = Color3.fromRGB(0, 255, 0)
+
+-- Set properties for the TitleLabel
+TitleLabel.Parent = Frame
+TitleLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+TitleLabel.Size = UDim2.new(0.9, 0, 0.2, 0)
+TitleLabel.Position = UDim2.new(0.05, 0, 0.05, 0)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.Text = "Simple BloxFruits AutoFarm"
+TitleLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+TitleLabel.TextSize = 24
+TitleLabel.BorderSizePixel = 0
+
+-- Set properties for the KeyLabel
+KeyLabel.Parent = Frame
+KeyLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+KeyLabel.Size = UDim2.new(0.9, 0, 0.1, 0)
+KeyLabel.Position = UDim2.new(0.05, 0, 0.3, 0)
+KeyLabel.Font = Enum.Font.SourceSansBold
+KeyLabel.Text = "Enter Key:"
+KeyLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+KeyLabel.TextSize = 20
+KeyLabel.BorderSizePixel = 0
+
+-- Set properties for the KeyBox
+KeyBox.Parent = Frame
+KeyBox.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+KeyBox.Size = UDim2.new(0.9, 0, 0.1, 0)
+KeyBox.Position = UDim2.new(0.05, 0, 0.45, 0)
+KeyBox.Font = Enum.Font.SourceSansBold
+KeyBox.PlaceholderText = "Enter Key"
+KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 0, 0)
+KeyBox.Text = ""
+KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyBox.TextSize = 18
+KeyBox.BorderSizePixel = 0
+
+-- Set properties for the EnterKeyButton
+EnterKeyButton.Parent = Frame
+EnterKeyButton.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+EnterKeyButton.Size = UDim2.new(0.4, 0, 0.1, 0)
+EnterKeyButton.Position = UDim2.new(0.3, 0, 0.65, 0)
+EnterKeyButton.Font = Enum.Font.SourceSansBold
+EnterKeyButton.Text = "Enter"
+EnterKeyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+EnterKeyButton.TextSize = 18
+EnterKeyButton.BorderSizePixel = 0
+
+-- Function to create ESP for enemies
+local function createESP(object)
+    local highlight = Instance.new("Highlight")
+    highlight.Name = "EnemyESP"
+    highlight.Adornee = object
+    highlight.FillColor = espColor
+    highlight.FillTransparency = 0.5
+    highlight.OutlineColor = espColor
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Parent = object
+end
+
+-- Function to remove existing ESPs
+local function removeExistingESPs()
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("Highlight") and v.Name == "EnemyESP" then
+            v:Destroy()
+        end
+    end
+end
+
+-- Function to update ESPs
+local function updateESP()
+    if not espEnabled then return end
+
+    -- Remove existing ESPs
+    removeExistingESPs()
+
+    -- Add ESP to enemies
+    for _, object in pairs(Workspace:GetDescendants()) do
+        if object:IsA("Model") and object:FindFirstChild("HumanoidRootPart") and object:FindFirstChild("Humanoid") then
+            createESP(object)
+        end
+    end
+end
+
+-- Function to teleport to and pick up the nearest fruit
+local function teleportAndPickupNearestFruit()
+    local closestFruit = nil
+    local shortestDistance = math.huge
+
+    for _, fruit in pairs(Workspace:GetDescendants()) do
+        if fruit:IsA("BasePart") and fruit.Name == "Fruit" then
+            local distance = (fruit.Position - player.Character.HumanoidRootPart.Position).magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestFruit = fruit
+            end
+        end
+    end
+
+    if closestFruit then
+        player.Character.HumanoidRootPart.CFrame = closestFruit.CFrame
+        wait(0.5) -- Wait for half a second to ensure the character has teleported to the fruit
+        fireclickdetector(closestFruit:FindFirstChildOfClass("ClickDetector")) -- Simulate a click to pick up the fruit
+    end
+end
+
+-- Function to show the main GUI after key validation
+local function showMainGUI()
+    KeyBox:Destroy()
+    KeyLabel:Destroy()
+    EnterKeyButton:Destroy()
+
+    local AutoFarmButton = Instance.new("TextButton")
+    local TeleportButton = Instance.new("TextButton")
+    local CloseButton = Instance.new("TextButton")
+    local StatusLabel = Instance.new("TextLabel")
+    local EnemyESPButton = Instance.new("TextButton")
+    local TeleportFruitButton = Instance.new("TextButton")
+
+    -- Set properties for the AutoFarmButton
+    AutoFarmButton.Parent = Frame
+    AutoFarmButton.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+    AutoFarmButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+    AutoFarmButton.Position = UDim2.new(0.1, 0, 0.2, 0)
+    AutoFarmButton.Font = Enum.Font.SourceSansBold
+    AutoFarmButton.Text = "Toggle Auto Farm"
+    AutoFarmButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoFarmButton.TextSize = 18
+    AutoFarmButton.BorderSizePixel = 0
+
+    -- Set properties for the TeleportButton
+    TeleportButton.Parent = Frame
+    TeleportButton.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+    TeleportButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+    TeleportButton.Position = UDim2.new(0.1, 0, 0.35, 0)
+    TeleportButton.Font = Enum.Font.SourceSansBold
+    TeleportButton.Text = "Teleport to Chests"
+    TeleportButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TeleportButton.TextSize = 18
+    TeleportButton.BorderSizePixel = 0
+
+    -- Set properties for the EnemyESPButton
+    EnemyESPButton.Parent = Frame
+    EnemyESPButton.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+    EnemyESPButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+    EnemyESPButton.Position = UDim2.new(0.1, 0, 0.5, 0)
+    EnemyESPButton.Font = Enum.Font.SourceSansBold
+    EnemyESPButton.Text = "Toggle Enemy ESP"
+    EnemyESPButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    EnemyESPButton.TextSize = 18
+    EnemyESPButton.BorderSizePixel = 0
+
+    -- Set properties for the TeleportFruitButton
+    TeleportFruitButton.Parent = Frame
+    TeleportFruitButton.BackgroundColor3 = Color3.fromRGB(0, 102, 255)
+    TeleportFruitButton.Size = UDim2.new(0.8, 0, 0.1, 0)
+    TeleportFruitButton.Position = UDim2.new(0.1, 0, 0.65, 0)
+    TeleportFruitButton.Font = Enum.Font.SourceSansBold
+    TeleportFruitButton.Text = "Teleport & Pickup Nearest Fruit"
+    TeleportFruitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TeleportFruitButton.TextSize = 18
+    TeleportFruitButton.BorderSizePixel = 0
+
+    -- Set properties for the CloseButton
+    CloseButton.Parent = Frame
+    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    CloseButton.Size = UDim2.new(0.2, 0, 0.2, 0)
+    CloseButton.Position = UDim2.new(0.8, 0, 0, 0)
+    CloseButton.Font = Enum.Font.SourceSansBold
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 18
+    CloseButton.BorderSizePixel = 0
+
+    -- Set properties for the StatusLabel
+    StatusLabel.Parent = Frame
+    StatusLabel.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    StatusLabel.Size = UDim2.new(0.8, 0, 0.2, 0)
+    StatusLabel.Position = UDim2.new(0.1, 0, 0.8, 0)
+    StatusLabel.Font = Enum.Font.SourceSans
+    StatusLabel.Text = "Status: Idle"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.TextSize = 18
+    StatusLabel.BorderSizePixel = 0
+
+    -- Function to enable dragging of the Frame
+    local dragging, dragInput, dragStart, startPos
+
+    local function updateInput(input)
+        local delta = input.Position - dragStart
+        Frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    Frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = Frame.Position
+
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    Frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType.MouseButton1 or input.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            updateInput(input)
+        end
+    end)
+
+    -- Function to find the nearest enemy
+    local function getClosestEnemy()
+        local closestEnemy = nil
+        local shortestDistance = math.huge
+
+        for _, enemy in pairs(Workspace.Enemies:GetChildren()) do
+            if enemy:FindFirstChild("HumanoidRootPart") and enemy:FindFirstChild("Humanoid") and enemy.Humanoid.Health > 0 then
+                local distance = (enemy.HumanoidRootPart.Position - player.Character.HumanoidRootPart.Position).magnitude
+                if distance < shortestDistance then
+                    shortestDistance = distance
+                    closestEnemy = enemy
+                end
+            end
+        end
+
+        return closestEnemy
+    end
+
+    -- Function to attack the closest enemy
+    local function attackEnemy(enemy)
+        while enemy and enemy.Humanoid.Health > 0 and AutoFarmEnabled do
+            player.Character.HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, 0, 5)
+            game:GetService("VirtualUser"):Button1Down(Vector2.new(1280, 672), Workspace.CurrentCamera.CFrame)
+            wait(0.1)
+            game:GetService("VirtualUser"):Button1Up(Vector2.new(1280, 672), Workspace.CurrentCamera.CFrame)
+            wait(0.1)
+        end
+    end
+
+    -- Function to teleport to the nearest enemy
+    local function teleportToNearestEnemy()
+        local closestEnemy = getClosestEnemy()
+        if closestEnemy then
+            player.Character.HumanoidRootPart.CFrame = closestEnemy.HumanoidRootPart.CFrame
+        end
+    end
+
+    -- Function to teleport to chests
+    local function teleportToChests()
+        local chestPaths = {
+            "workspace.Map.Desert.Chests:GetChildren()[4]",
+            "workspace.Map.Colosseum.Chests:GetChildren()[3]",
+            "workspace.Map.Fountain.Chests.Chest3",
+            "workspace.ChestModels.GoldChest"
+        }
+
+        for _, path in pairs(chestPaths) do
+            local success, chest = pcall(function()
+                return loadstring("return " .. path)()
+            end)
+
+            if success and chest then
+                player.Character.HumanoidRootPart.CFrame = chest.CFrame
+                wait(2) -- Stay at each chest for 2 seconds
+            end
+        end
+    end
+
+    -- Auto farm toggle function
+    AutoFarmButton.MouseButton1Click:Connect(function()
+        AutoFarmEnabled = not AutoFarmEnabled
+        AutoFarmButton.BackgroundColor3 = AutoFarmEnabled and Color3.fromRGB(255, 0, 0) or Color3.fromRGB(0, 102, 255)
+        StatusLabel.Text = AutoFarmEnabled and "Status: Auto Farming" or "Status: Idle"
+
+        if AutoFarmEnabled then
+            spawn(function()
+                while AutoFarmEnabled do
+                    teleportToNearestEnemy()
+                    local closestEnemy = getClosestEnemy()
+                    if closestEnemy then
+                        attackEnemy(closestEnemy)
+                    else
+                        StatusLabel.Text = "Status: No enemies found"
+                    end
+                    wait(1)
+                end
+            end)
+        end
+    end)
+
+    -- Teleport button function
+    TeleportButton.MouseButton1Click:Connect(function()
+        teleportToChests()
+    end)
+
+    -- Toggle ESP button function
+    EnemyESPButton.MouseButton1Click:Connect(function()
+        espEnabled = not espEnabled
+        updateESP()
+    end)
+
+    -- Teleport to nearest fruit button function
+    TeleportFruitButton.MouseButton1Click:Connect(function()
+        teleportAndPickupNearestFruit()
+    end)
+
+    -- Close button function
+    CloseButton.MouseButton1Click:Connect(function()
+        ScreenGui:Destroy()
+    end)
+end
+
+-- Key entry function
+EnterKeyButton.MouseButton1Click:Connect(function()
+    local enteredKey = KeyBox.Text
+    if enteredKey == validKey then
+        keyEntered = true
+        showMainGUI()
+    else
+        KeyLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        KeyLabel.Text = "Invalid Key"
+    end
+end)
+
+-- Update ESP every second
+RunService.Stepped:Connect(function()
+    if espEnabled then
+        updateESP()
+    end
+end)
