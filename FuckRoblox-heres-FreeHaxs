@@ -22,7 +22,7 @@ local KeyBox = Instance.new("TextBox")
 local EnterKeyButton = Instance.new("TextButton")
 
 local AutoFarmEnabled = false
-local validKey = "AmodeISsigma"
+local validKey = "Amode313
 local keyEntered = false
 
 -- Set properties for the ScreenGui
